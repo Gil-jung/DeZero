@@ -1,6 +1,6 @@
 import os
 import subprocess
-
+import numpy as np
 
 # =============================================================================
 # Visualize for computational graph
@@ -150,3 +150,13 @@ def reshape_sum_backward(gy, x_shape, axis, keepdims):
     
     gy = gy.reshape(shape)  # reshape
     return gy
+
+
+def logsumexp(x, axis=1):
+    m = x.max(axis=axis, keepdims=True)
+    y = x - m
+    np.exp(y, out=y)
+    s = y.sum(axis=axis, keepdims=True)
+    np.log(s, out=s)
+    m += s
+    return m
