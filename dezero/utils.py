@@ -4,6 +4,7 @@ import urllib.request
 import numpy as np
 from dezero import as_variable
 from dezero import Variable
+from dezero import cuda
 
 
 # =============================================================================
@@ -157,13 +158,26 @@ def reshape_sum_backward(gy, x_shape, axis, keepdims):
 
 
 def logsumexp(x, axis=1):
+    xp = cuda.get_array_module(x)
     m = x.max(axis=axis, keepdims=True)
     y = x - m
-    np.exp(y, out=y)
+    xp.exp(y, out=y)
     s = y.sum(axis=axis, keepdims=True)
-    np.log(s, out=s)
+    xp.log(s, out=s)
     m += s
     return m
+
+
+def max_backward_shape(x, axis):
+    if axis is None:
+        axis = range(x.ndim)
+    elif isinstance(axis, int):
+        axis = (axis,)
+    else:
+        axis = axis
+    
+    shape = [s if ax not in axis else 1 for ax, s in enumerate(x.shape)]
+    return shape
 
 
 # =============================================================================

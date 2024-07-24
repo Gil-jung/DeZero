@@ -2,6 +2,7 @@ import os
 import weakref
 import numpy as np
 import dezero.functions as F
+from dezero import cuda
 from dezero.core import Parameter
 
 
@@ -40,6 +41,14 @@ class Layer:
     def cleargrads(self):
         for param in self.params():
             param.cleargrad()
+    
+    def to_cpu(self):
+        for param in self.params():
+            param.to_cpu()
+    
+    def to_gpu(self):
+        for param in self.params():
+            param.to_gpu()
 
 
 # =============================================================================
@@ -69,7 +78,8 @@ class Linear(Layer):
     def forward(self, x):
         if self.W.data is None:
             self.in_size = x.shape[1]
-            self._init_W()
+            xp = cuda.get_array_module(x)
+            self._init_W(xp)
         
         y = F.linear(x, self.W, self.b)
         return y
