@@ -60,6 +60,26 @@ class Resize:
         return img.crop((left, up, right, bottom))
 
 
+class CenterCrop:
+    """Resize the input PIL image to the given size.
+
+    Args:
+        size (int or (int, int)): Desired output size.
+        mode (int): Desired interpolation.
+    """
+    def __init__(self, size):
+        self.size = pair(size)
+
+    def __call__(self, img):
+        W, H = img.size
+        OW, OH = self.size
+        left = (W - OW) // 2
+        right = W - ((W - OW) // 2 + (W - OW) % 2)
+        up = (H - OH) // 2
+        bottom = H - ((H - OH) // 2 + (H - OH) % 2)
+        return img.crop((left, up, right, bottom))
+
+
 class ToArray:
     """Convert PIL Image to NumPy array."""
     def __init__(self, dtype=np.float32):

@@ -17,22 +17,22 @@ class Dataset:
             self.transform = lambda x: x
         if self.target_transform is None:
             self.target_transform = lambda x: x
-        
+
         self.data = None
         self.label = None
         self.prepare()
-    
+
     def __getitem__(self, index):
         assert np.isscalar(index)
         if self.label is None:
             return self.transform(self.data[index]), None
         else:
-            return self.transform(self.data[index]), \
-                self.target_transform(self.label[index])
-    
+            return self.transform(self.data[index]),\
+                   self.target_transform(self.label[index])
+
     def __len__(self):
         return len(self.data)
-    
+
     def prepare(self):
         pass
 
@@ -47,7 +47,7 @@ def get_spiral(train=True):
     num_data, num_class, input_dim = 100, 3, 2
     data_size = num_class * num_data
     x = np.zeros((data_size, input_dim), dtype=np.float32)
-    t = np.zeros(data_size, dtype=np.int32)
+    t = np.zeros(data_size, dtype=np.int)
 
     for j in range(num_class):
         for i in range(num_data):
@@ -55,7 +55,7 @@ def get_spiral(train=True):
             radius = 1.0 * rate
             theta = j * 4.0 + 4.0 * rate + np.random.randn() * 0.2
             ix = num_data * j + i
-            x[ix] = np.array([radius * np.sin(theta), 
+            x[ix] = np.array([radius * np.sin(theta),
                               radius * np.cos(theta)]).flatten()
             t[ix] = j
     # Shuffle
@@ -76,24 +76,25 @@ class Spiral(Dataset):
 class MNIST(Dataset):
 
     def __init__(self, train=True,
-                 transform=Compose([Flatten(), ToFloat(), Normalize(0., 255.)]), 
+                 transform=Compose([Flatten(), ToFloat(),
+                                     Normalize(0., 255.)]),
                  target_transform=None):
         super().__init__(train, transform, target_transform)
-    
+
     def prepare(self):
         url = 'http://yann.lecun.com/exdb/mnist/'
         train_files = {'target': 'train-images-idx3-ubyte.gz',
                        'label': 'train-labels-idx1-ubyte.gz'}
         test_files = {'target': 't10k-images-idx3-ubyte.gz',
                       'label': 't10k-labels-idx1-ubyte.gz'}
-        
+
         files = train_files if self.train else test_files
         data_path = get_file(url + files['target'])
         label_path = get_file(url + files['label'])
 
         self.data = self._load_data(data_path)
         self.label = self._load_label(label_path)
-    
+
     def _load_label(self, filepath):
         with gzip.open(filepath, 'rb') as f:
             labels = np.frombuffer(f.read(), np.uint8, offset=8)
@@ -230,7 +231,7 @@ class CIFAR100(CIFAR10):
     def labels(label_type='fine'):
         coarse_labels = dict(enumerate(['aquatic mammals','fish','flowers','food containers','fruit and vegetables','household electrical device','household furniture','insects','large carnivores','large man-made outdoor things','large natural outdoor scenes','large omnivores and herbivores','medium-sized mammals','non-insect invertebrates','people','reptiles','small mammals','trees','vehicles 1','vehicles 2']))
         fine_labels = []
-        return fine_labels if label_type is 'fine' else coarse_labels
+        return fine_labels if label_type == 'fine' else coarse_labels
 
 
 

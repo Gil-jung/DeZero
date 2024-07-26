@@ -244,6 +244,15 @@ def broadcast_to(x, shape):
     return BroadcastTo(shape)(x)
 
 
+def average(x, axis=None, keepdims=False):
+    x = as_variable(x)
+    y = sum(x, axis, keepdims)
+    return y * (y.data.size / x.data.size)
+
+
+mean = average
+
+
 class MatMul(Function):
     def forward(self, x, W):
         y = x.dot(W)
@@ -517,6 +526,80 @@ def dropout(x, dropout_ratio=0.5):
         return x
 
 
+class BatchNorm(Function):
+    def __init__(self, mean, var, decay, eps):
+        self.avg_mean = mean
+        self.avg_var = var
+        self.decay = decay
+        self.eps = eps
+        self.inv_std = None
+    
+    def forward(self, x, gamma, beta):
+        assert x.ndim == 2 or x.ndim == 4
+
+        x_ndim = x.ndim
+        if x_ndim == 4:
+            N, C, H, W = x.shape
+            x = x.transpose(0, 2, 3, 1).reshape(-1, C)
+        
+        xp = cuda.get_array_module(x)
+
+        if dezero.Config.train:
+            mean = x.mean(axis=0)
+            var = x.var(axis=0)
+            inv_std = 1 / xp.sqrt(var + self.eps)
+            xc = (x - mean) * inv_std
+
+            m = x.size // gamma.size
+            s = m - 1. if m - 1. > 1. else 1.
+            adjust = m / s  # unbiased estimation
+            self.avg_mean *= self.decay
+            self.avg_mean += (1 - self.decay) * mean
+            self.avg_var *= self.decay
+            self.avg_var += (1 - self.decay) * adjust * var
+            self.inv_std = inv_std
+        else:
+            inv_std = 1 / xp.sqrt(self.avg_var + self.eps)
+            xc = (x - self.avg_mean) * inv_std
+        y = gamma * xc + beta
+        
+        if x_ndim == 4:
+            y = y.reshape(N, H, W, C).transpose(0, 3, 1, 2)
+        return y
+    
+    def backward(self, gy):
+        gy_ndim = gy.ndim
+        if gy_ndim == 4:
+            N, C, H, W = gy.shape
+            gy = gy.transpose(0, 2, 3, 1).reshape(-1, C)
+        
+        x, gamma, beta = self.inputs
+        batch_size = len(gy)
+
+        if x.ndim == 4:
+            N, C, H, W = x.shape
+            x = x.transpose(0, 2, 3, 1).reshape(-1, C)
+        mean = x.sum(axis=0) / batch_size
+        xc = (x - mean) * self.inv_std
+
+        gbeta = sum(gy, axis=0)
+        ggamma = sum(xc * gy, axis=0)
+        gx = gy - gbeta / batch_size - xc * ggamma / batch_size
+        gx *= gamma * self.inv_std
+
+        if gy_ndim == 4:
+            gx = gx.reshape(N, H, W, C).transpose(0, 3, 1, 2)
+        return gx, ggamma, gbeta
+
+
+def batch_nrom(x, gamma, beta, mean, var, decay=0.9, eps=2e-5):
+    return BatchNorm(mean, var, decay, eps)(x, gamma, beta)
+
+
+def embed_id(x, W):
+    return W[x]
+
+
 # =============================================================================
 # max / min / clip
 # =============================================================================
@@ -587,10 +670,10 @@ from dezero.functions_conv import col2im
 from dezero.functions_conv import pooling_simple
 from dezero.functions_conv import pooling
 from dezero.functions_conv import average_pooling
-# from dezero.core import add
-# from dezero.core import sub
-# from dezero.core import rsub
-# from dezero.core import mul
-# from dezero.core import div
-# from dezero.core import neg
-# from dezero.core import pow
+from dezero.core import add
+from dezero.core import sub
+from dezero.core import rsub
+from dezero.core import mul
+from dezero.core import div
+from dezero.core import neg
+from dezero.core import pow
